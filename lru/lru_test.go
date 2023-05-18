@@ -11,6 +11,7 @@ func (d String) Len() int {
 	return len(d)
 }
 
+// 测试 Get 方法
 func TestGet(t *testing.T) {
 	lru := New(int64(0), nil)
 	lru.Add("key1", String("1234"))
@@ -22,6 +23,7 @@ func TestGet(t *testing.T) {
 	}
 }
 
+// 测试 Removeoldest 方法
 func TestRemoveoldest(t *testing.T) {
 	k1, k2, k3 := "key1", "key2", "k3"
 	v1, v2, v3 := "value1", "value2", "v3"
