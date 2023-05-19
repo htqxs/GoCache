@@ -8,6 +8,23 @@ import (
 	"sync"
 )
 
+// A Getter loads data for a key.
+// 回调 Getter，设计了一个回调函数(callback)，在缓存不存在时，调用此函数，得到源数据
+type Getter interface {
+	Get(key string) ([]byte, error)
+}
+
+// A GetterFunc implements Getter with a function.
+// 定义函数类型 GetterFunc，并实现 Getter 接口的 Get 方法
+type GetterFunc func(key string) ([]byte, error)
+
+// Get implements Getter interface function
+// 函数类型实现某一个接口，称之为接口型函数，方便使用者在调用时既能够传入函数作为参数，
+// 也能够传入实现了该接口的结构体作为参数
+func (f GetterFunc) Get(key string) ([]byte, error) {
+	return f(key)
+}
+
 // A Group is a cache namespace and associated data loaded spread over
 // 一个 Group 可以认为是一个缓存的命名空间，每个 Group 拥有一个唯一的名称 name
 type Group struct {
@@ -126,21 +143,4 @@ func (g *Group) getLocally(key string) (ByteView, error) {
 
 func (g *Group) populateCache(key string, value ByteView) {
 	g.mainCache.add(key, value)
-}
-
-// A Getter loads data for a key.
-// 回调 Getter，设计了一个回调函数(callback)，在缓存不存在时，调用此函数，得到源数据
-type Getter interface {
-	Get(key string) ([]byte, error)
-}
-
-// A GetterFunc implements Getter with a function.
-// 定义函数类型 GetterFunc，并实现 Getter 接口的 Get 方法
-type GetterFunc func(key string) ([]byte, error)
-
-// Get implements Getter interface function
-// 函数类型实现某一个接口，称之为接口型函数，方便使用者在调用时既能够传入函数作为参数，
-// 也能够传入实现了该接口的结构体作为参数
-func (f GetterFunc) Get(key string) ([]byte, error) {
-	return f(key)
 }

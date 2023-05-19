@@ -9,7 +9,7 @@ import (
 type cache struct {
 	mu         sync.Mutex
 	lru        *lru.Cache
-	cacheBytes int64
+	cacheBytes int64 // 允许使用的最大内存
 }
 
 // 封装 add 方法，并添加互斥锁 mu
