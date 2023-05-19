@@ -4,16 +4,28 @@ package gocache
 
 import (
 	"fmt"
+	"go-cache/gocache/consistenthash"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"sync"
 )
 
-const defaultBasePath = "/_gocache/"
+const (
+	defaultBasePath = "/_gocache/"
+	defaultReplicas = 50
+)
 
+// 新增成员变量 httpGetters, 映射远程节点与对应的 httpGetter。
+// 每一个远程节点对应一个 httpGetter，因为 httpGetter 与远程节点的地址 baseURL 有关。
 type HTTPPool struct {
-	self     string // 记录自己的地址
-	basePath string // 节点之间通讯地址的前缀
+	self        string                 // 记录自己的地址
+	basePath    string                 // 节点之间通讯地址的前缀
+	mu          sync.Mutex             // guards peers and httpGetters
+	peers       *consistenthash.Map    // 一致性哈希算法的 Map, 用来根据具体的 key 选择节点
+	httpGetters map[string]*httpGetter // keyed by e.g. "http://10.0.0.2:800 value: httpGetter
 }
 
 // 实例化 HTTPPool
@@ -59,4 +71,62 @@ func (p *HTTPPool) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 写回数据
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(view.b)
+}
+
+// Set updates the pool's list of peers.
+func (p *HTTPPool) Set(peers ...string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	// 1. 实例化哈希算法
+	p.peers = consistenthash.New(defaultReplicas, nil)
+	// 2. 添加新节点
+	p.peers.Add(peers...)
+	p.httpGetters = make(map[string]*httpGetter, len(peers))
+	for _, peer := range peers {
+		// 3. 为每一个节点创建了一个 HTTP 客户端 httpGetter
+		p.httpGetters[peer] = &httpGetter{baseURL: peer + p.basePath}
+	}
+}
+
+// PickPeer picks a peer according to key
+// 封装哈希模块的 Get 方法, 根据具体的 key, 选择节点, 返回节点对应的 HTTP 客户端
+func (p *HTTPPool) PickPeer(key string) (PeerGetter, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if peer := p.peers.Get(key); peer != "" && peer != p.self {
+		p.Log("Pick peer %s", peer)
+		return p.httpGetters[peer], true
+	}
+	return nil, false
+}
+
+// HTTP 客户端类 httpGetter
+type httpGetter struct {
+	baseURL string // baseURL 表示将要访问的远程节点的地址
+}
+
+// 实现 PeerGetter 接口, 获取返回值
+func (h *httpGetter) Get(group string, key string) ([]byte, error) {
+	u := fmt.Sprintf(
+		"%v%v/%v",
+		h.baseURL,
+		url.QueryEscape(group),
+		url.QueryEscape(key),
+	)
+	res, err := http.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("server returned: %v", res.Status)
+	}
+
+	bytes, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response body: %v", err)
+	}
+
+	return bytes, nil
 }
