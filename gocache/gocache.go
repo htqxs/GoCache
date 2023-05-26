@@ -85,7 +85,7 @@ func (g *Group) Get(key string) (ByteView, error) {
 	}
 	// 1. 从 mainCache 查询 key, 若存在, 则返回值
 	if v, ok := g.mainCache.get(key); ok {
-		log.Println("[GeeCache] hit")
+		log.Println("[GoCache] hit")
 		return v, nil
 	}
 	// 2. 缓存不存在, 调用 load 方法获取源数据
@@ -103,7 +103,7 @@ func (g *Group) load(key string) (value ByteView, err error) {
 				if value, err = g.getFromPeer(peer, key); err == nil {
 					return value, nil
 				}
-				log.Println("[GeeCache] Failed to get from peer", err)
+				log.Println("[GoCache] Failed to get from peer", err)
 			}
 		}
 		return g.getLocally(key)

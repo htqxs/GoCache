@@ -17,9 +17,11 @@ import (
 )
 
 var db = map[string]string{
-	"Tom":  "630",
-	"Jack": "589",
-	"Sam":  "567",
+	"Tom":      "630",
+	"Jack":     "589",
+	"Sam":      "567",
+	"zhangzhi": "100",
+	"csy":      "99",
 }
 
 func createGroup() *gocache.Group {
@@ -37,7 +39,7 @@ func startCacheServer(addr string, addrs []string, gee *gocache.Group) {
 	peers := gocache.NewHTTPPool(addr)
 	peers.Set(addrs...)
 	gee.RegisterPeers(peers)
-	log.Println("geecache is running at", addr)
+	log.Println("gocache is running at", addr)
 	log.Fatal(http.ListenAndServe(addr[7:], peers))
 }
 
@@ -69,7 +71,7 @@ func startAPIServer(apiAddr string, gee *gocache.Group) {
 func main() {
 	var port int
 	var api bool
-	flag.IntVar(&port, "port", 8001, "Geecache server port")
+	flag.IntVar(&port, "port", 8001, "Gocache server port")
 	flag.BoolVar(&api, "api", false, "Start a api server?")
 	flag.Parse()
 
